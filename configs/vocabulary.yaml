@@ -1,0 +1,14 @@
+vocabulary: [
+  "cat", "dog", "pet", "animal", "furry", "bark", "meow",
+  "apple", "fruit", "red", "sweet", "juice", "tree", "banana",
+  "car", "vehicle", "wheel", "drive", "fast", "road", "engine",
+  "book", "read", "page", "paper", "library", "story", "write",
+  "popa", "pisya", "kaka", "smile", "sun", "sunny", "random", "scroll",
+  "black", "people", "tasty", "fine", "not", "rain", "nose", "noise",
+  "value", "model", "drugs", "alcohol", "smell", "water", "hot", "bottle",
+  "beer", "whiskey", "logical", "song", "guitar", "piano", "biba", "boba",
+  "vodka", "orange", "pear", "truck", "speed", "author", "novel", "aboba",
+  "cheburek", "sky", "cloud", "white", "green", "wine", "rum", "music", "drums",
+  "cold", "glass", "system", "token", "looking", "charlotta_ginsburg", "defoe",
+  "default"
+]

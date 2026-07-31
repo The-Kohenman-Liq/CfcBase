@@ -1,0 +1,9 @@
+default:
+  - vocabulary: vocabulary
+  - curriculum: eras
+
+model:
+  file: "model_config"
+  category: "model"
+
+
