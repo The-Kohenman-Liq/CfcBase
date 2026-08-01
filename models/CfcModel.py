@@ -17,7 +17,7 @@ class CfcMemoryModel(nn.Module):
 
     projection_matrix: nn.Buffer
     groups: nn.ModuleList
-    mlp: nn.Sequential # сейчас отсутствует – ожидается тестирование с CfcMotor в качестве головы
+    mlp: nn.Sequential
 
     generator: torch.Generator
     def __init__(self, vocab_size: int,
