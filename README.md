@@ -5,7 +5,7 @@
 https://www.nature.com/articles/s42256-022-00556-7#Bib1 \
 https://ved933409.medium.com/neural-circuit-policy-training-a-autonomous-vehicles-using-models-inspired-by-nervous-system-db79a554ebef \
 https://github.com/mlech26l/ncps/tree/master \
-https://github.com/raminmh/CfC
+https://github.com/raminmh/CfC \
 мои сновидения
 
 Как я уже говорил, идея была просто балдеж на кончиках пальцев – абстракция для объединения слоев с определенными св-вами в группы, 
