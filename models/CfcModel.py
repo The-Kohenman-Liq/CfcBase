@@ -33,6 +33,7 @@ class CfcMemoryModel(nn.Module):
         self.device = device
         self.generator = torch.Generator().manual_seed(seed)
 
+        # TODO! input_layer
         projection_matrix = torch.randn(self.vocab_size, self.embedding_dim,
                                         generator=self.generator)
         self.register_buffer('projection_matrix', projection_matrix)
@@ -102,50 +103,26 @@ class CfcMemoryModel(nn.Module):
                 new_states.append(None)
         self._states = new_states
 
-    def forward(self, x: torch.Tensor, ts: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, ts: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Входной тензор.
-               - Если [Batch, Time] (тип long): Последовательность индексов токенов.
-               - Если [Batch, Dim] (тип float): Один шаг эмбеддингов.
-               - Если [Batch, Time, Dim] (тип float): Последовательность эмбеддингов.
-            ts: Дельта времени. [Batch, 1] или [Batch, Time, 1] (или [Batch, Time]).
+            x: [Batch, SeqLen]
+            ts: [Batch, SeqLen, 1]
+            mask: [Batch, SeqLen] (True/False)
+        Returns:
+            logits: [Batch, VocabSize] – на общем рефакторинге стоит уже переименовать vocab_size
         """
-        # Определяем режим на основе входного x
-        if x.dim() == 2 and x.dtype == torch.long:
-            is_sequence = True
-            indices = x
-            x = self.projection_matrix[indices]  # [Batch, Time] -> [Batch, Time, Embedding_Dim]
-        elif x.dim() == 2:
-            is_sequence = False
-            x = x.unsqueeze(1)  # [Batch, Dim] -> [Batch, 1, Dim]
-        else:
-            is_sequence = True
-
         batch_size = x.shape[0]
         seq_len = x.shape[1]
 
-        if ts.dim() == 2:
-            if is_sequence and ts.shape[1] == seq_len:
-                ts = ts.unsqueeze(-1)  # [Batch, Time, 1]
-            else:
-                ts = ts.unsqueeze(1)
-                if is_sequence:
-                    ts = ts.expand(-1, seq_len, -1)
-        elif ts.dim() == 3:
-            pass
+        x_emb = self.projection_matrix[x.long()]
 
-        if is_sequence:
-            self.reset_states(batch_size)
-        else:
-            if not self._states or len(self._states) != len(self.groups):
-                self.reset_states(batch_size)
+        self.reset_states(batch_size)
 
         all_outputs = []
-
         for t in range(seq_len):
-            x_t = x[:, t, :]  # [Batch, Dim]
-            ts_t = ts[:, t, :]  # [Batch, 1]
+            x_t = x_emb[:, t, :]
+            ts_t = ts[:, t, :]
 
             current_input = x_t
 
@@ -160,15 +137,14 @@ class CfcMemoryModel(nn.Module):
                     current_input = group_output
                 else:
                     current_input = group(current_input)
-
             all_outputs.append(current_input)
 
-        if is_sequence:
-            out = torch.stack(all_outputs, dim=1)
-        else:
-            out = all_outputs[0]
-        logits = self.mlp(out)
+        all_outputs = torch.stack(all_outputs, dim=1) #[Batch, SeqLen, HiddenDim]
+        last_valid_indices = (mask.sum(dim=1).long() - 1).clamp(min=0)
+        batch_idx = torch.arange(batch_size, device=self.device)
+        final_states = all_outputs[batch_idx, last_valid_indices]
 
+        logits = self.mlp(final_states)
         return logits
 
     def scheduler_step(self):
@@ -308,6 +284,8 @@ class CfcInter(CfcGroup):
                 prev_hx_states: List[torch.Tensor] | Tuple[torch.Tensor, ...],
                 ts: torch.Tensor) -> Tuple[torch.Tensor, list]:
 
+
+
         if self.feedback_loop:
             hx_states = tuple(
                 torch.cat([hx, prev_hx_states[(i+1)%self.hidden_count]], dim=1)
@@ -329,9 +307,9 @@ class CfcInter(CfcGroup):
                 for func in [cell.f_func, cell.g_func, cell.h_func]:
                     with torch.no_grad():
                         if self.use_polarity:
-                            func.weight.copy_(func.weight.abs() * sign_mask * sparsity_mask)
+                            func.weight.copy_(func.weight * sign_mask * sparsity_mask)
                         else:
-                            func.weight.copy_(func.weight.abs() * sparsity_mask)
+                            func.weight.copy_(func.weight * sparsity_mask)
 
 
 # А я б честно CfcInter просто настроил, одна херня межнейронной связи нет ни здесь ни там пока что
