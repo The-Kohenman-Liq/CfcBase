@@ -1,39 +1,18 @@
 {
-  "embedding_dim": 32,
+  "embedding_dim": 10,
   "layers": {
     "0": {
       "layer": {
-        "type": "sensory",
-        "hidden_sizes": [128],
-        "recurrence_active": false
-      }
-    },
-    "1": {
-      "layer": {
         "type": "inter",
-        "hidden_sizes": [256, 256],
-        "feedback_loop": true,
-        "use_polarity": true,
-        "sparsity": 0.6,
-        "excitatory_ratio": 0.75
-      }
-    },
-    "2": {
-      "layer": {
-        "type": "command",
-        "hidden_sizes": [256, 128],
+        "hidden_sizes": [
+          64,
+          64,
+          64
+        ],
         "feedback_loop": false,
-        "use_polarity": true,
-        "sparsity": 0.5,
+        "use_polarity": false,
+        "sparsity": 0.0,
         "excitatory_ratio": 0.75
-      }
-    },
-    "3": {
-      "layer": {
-        "type": "motor",
-        "hidden_sizes": [90, 128],
-        "recurrence_active": false,
-        "use_polarity": false
       }
     }
   },

@@ -1,6 +1,9 @@
+from typing import  Any, Dict
+
 import torch
-from torch import optim
-import torch.nn.functional as F
+from torch import optim, nn
+
+
 
 
 def make_optimizer_and_scheduler(model, lr=0.0005):
@@ -10,41 +13,55 @@ def make_optimizer_and_scheduler(model, lr=0.0005):
     )
     return optimizer, scheduler
 
-def compute_diversity_loss(parallel_hidden_seq, eps: float = 1e-8) -> torch.Tensor:
-    if not parallel_hidden_seq:
-        return torch.tensor(0.0)
 
-    device = parallel_hidden_seq[0][0].device
-    total_ortho_loss = torch.tensor(0.0, device=device)
+def run_epoch(model: nn.Module,
+              loader: torch.utils.data.DataLoader,
+              optimizer: torch.optim.Optimizer,
+              scheduler,
+              device: torch.device,
+              is_training: bool = True) -> Dict[str, float]:
 
-    for h_next_list in parallel_hidden_seq:
-        num_blocks = len(h_next_list)
-        if num_blocks < 2:
-            continue
+    if is_training:
+        model.train()
+    else:
+        model.eval()
 
-        hidden_size = h_next_list[0].size(-1)
+    total_loss = 0.0
+    total_correct = 0
+    total_samples = 0
+    criterion = nn.CrossEntropyLoss()
 
-        pair_loss = torch.tensor(0.0, device=device)
-        pairs_count = 0
+    context = torch.enable_grad() if is_training else torch.no_grad()
 
-        for i in range(num_blocks):
-            for j in range(i + 1, num_blocks):
-                cos_sim = F.cosine_similarity(h_next_list[i], h_next_list[j], dim=-1, eps=eps)
-                ortho_term = torch.mean(cos_sim ** 2)
+    with context:
+        for batch in loader:
+            events = batch["events"].to(device)
+            ts = batch["ts"].to(device)
+            mask = batch["mask"].to(device)
+            targets = batch["label"].to(device)
 
-                mean_abs_i = torch.mean(torch.abs(h_next_list[i]), dim=-1)
-                mean_abs_j = torch.mean(torch.abs(h_next_list[j]), dim=-1)
+            if is_training:
+                optimizer.zero_grad()
 
-                alive_penalty_i = torch.mean(F.relu(0.5 - mean_abs_i) ** 2)
-                alive_penalty_j = torch.mean(F.relu(0.5 - mean_abs_j) ** 2)
+            with torch.autograd.set_detect_anomaly(False): ...
+            logits = model(events, ts, mask)
+            loss = criterion(logits, targets)
 
-                pair_loss = pair_loss + ortho_term + 2.0 * (alive_penalty_i + alive_penalty_j)
-                pairs_count += 1
+            if is_training:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
 
-        if pairs_count > 0:
-            total_ortho_loss = total_ortho_loss + (pair_loss / pairs_count)
+                if hasattr(model, 'scheduler_step'):
+                    model.scheduler_step()
 
-    return total_ortho_loss / len(parallel_hidden_seq)
+            total_loss += loss.item()
 
+            preds = torch.argmax(logits, dim=1)
+            total_correct += (preds == targets).sum().item()
+            total_samples += targets.size(0)
 
+            avg_loss =  total_loss / len(loader)
+            accuracy = total_correct / total_samples if total_samples > 0 else 0.0
 
+    return { "loss": avg_loss, "acc": accuracy}

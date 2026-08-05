@@ -91,10 +91,11 @@ class CfcGroup(nn.Module, ABC):
 
         new_hx_states = []
 
-        state = (inp, prev_hx_states[0], ts)
+
+        x_i = inp
         for i, cell in enumerate(self.layers):
-            x_i, hx = cell(*state)
             state = (x_i, prev_hx_states[i], ts)
+            x_i, hx = cell(*state)
             new_hx_states.append(hx)
-        output = state[0]
+        output = x_i
         return output, new_hx_states
